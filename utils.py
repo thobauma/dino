@@ -24,7 +24,7 @@ import math
 import random
 import datetime
 import subprocess
-from collections import defaultdict, deque
+from collections import defaultdict, deque, OrderedDict
 
 import numpy as np
 import torch
@@ -124,10 +124,20 @@ def load_pretrained_linear_weights(linear_classifier, model_name, patch_size):
     if url is not None:
         print("We load the reference pretrained linear weights.")
         state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/dino/" + url)["state_dict"]
+        if not 'module' in dir(linear_classifier):
+            state_dict = fix_model_state_dict(state_dict)
         linear_classifier.load_state_dict(state_dict, strict=True)
     else:
         print("We use random linear weights.")
 
+def fix_model_state_dict(state_dict):
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k
+        if name.startswith('module.'):
+            name = name[7:]  # remove 'module.' of dataparallel
+        new_state_dict[name] = v
+    return new_state_dict
 
 def clip_gradients(model, clip):
     norms = []
